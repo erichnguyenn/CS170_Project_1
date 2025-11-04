@@ -165,5 +165,81 @@ def pretty_board(state: State, k: int, blank_char: str = "b") -> str:
         rows.append(" ".join(blank_char if v==0 else str(v) for v in row))
     return "\n".join(rows)
 
+def read_puzzle_from_user(k: int) -> State:
+    print(" Enter your puzzle, use a zero to represent the blank")
+    data: List[int] = []
+    for i in range(k):
+        row = input(f"Enter the {['first','second','third','fourth','fifth','sixth','seventh','eighth','ninth'][i] if i<9 else f'{i+1}th'} row, use space or tabs between numbers   ").strip()
+        parts = row.split()
+        if len(parts) != k:
+            print(f"Expected {k} numbers; got {len(parts)}. Try again.", file=sys.stderr)
+            sys.exit(1)
+        try:
+            nums = [int(x) for x in parts]
+        except ValueError:
+            print("Non-integer value found. Aborting.", file=sys.stderr)
+            sys.exit(1)
+        data.extend(nums)
+    if sorted(data) != list(range(k * k)):
+        print(f"Input must contain all numbers 0..{k*k - 1} exactly once.", file=sys.stderr)
+        sys.exit(1)
+    return tuple(data)
+
+def main():
+    student_id = "XXX"
+    print(f"Welcome to {student_id} 8 puzzle solver.")
+    print('Type "1" to use a default puzzle, or "2" to enter your own puzzle.')
+    choice = input().strip()
+    if choice not in {"1", "2"}:
+        print("Invalid selection.", file=sys.stderr)
+        return
+
+    default_initial = (1, 2, 3,
+                       4, 8, 0,
+                       7, 6, 5)
+    k = 3
+    if choice == "1":
+        initial = default_initial
+    else:
+        initial = read_puzzle_from_user(k)
+
+    problem = PuzzleProblem(initial=initial, goal=None)
+    print("\nEnter your choice of algorithm")
+    print("1. Uniform Cost Search")
+    print("2. A* with the Misplaced Tile heuristic.")
+    print("3. A* with the Euclidean distance heuristic.")
+    alg_choice = input().strip()
+
+    if alg_choice == "1":
+        heuristic = (lambda s: 0)
+    elif alg_choice == "2":
+        heuristic = problem.misplaced_tiles
+    elif alg_choice == "3":
+        heuristic = problem.euclidean_distance
+    else:
+        print("Invalid selection.", file=sys.stderr)
+        return
+
+    if not problem.is_solvable(problem.initial):
+        print("\nWarning: This initial puzzle is not solvable. The search will run but cannot reach the goal.")
+
+    goal_node, nodes_expanded, max_q = a_star_search(problem, heuristic, trace=True)
+
+    if goal_node is not None:
+        print("\nGoal!!!")
+        print(f"\nTo solve this problem the search algorithm expanded a total of {nodes_expanded} nodes.")
+        print(f"The maximum number of nodes in the queue at any one time: {max_q}.")
+        print(f"The depth of the goal node was {goal_node.g}.")
+
+        path_nodes = goal_node.path()
+        actions = [n.action for n in path_nodes if n.action is not None]
+        if actions:
+            print("\nSolution (sequence of actions):")
+            print(" -> ".join(actions))
+    else:
+        print("\nNo solution found (frontier exhausted).")
+        print(f"Nodes expanded: {nodes_expanded}")
+        print(f"Max queue size: {max_q}")
+
 if __name__ == "__main__":
     main()
