@@ -1,2 +1,11 @@
 # CS170_Project_1
-Eric Nguyen
+
+## How to Run
+
+### Requirements
+- Python 3.7 or higher  
+- No external dependencies (uses Python standard library only)
+
+### Usage
+```bash
+python eight_puzzle.py
