@@ -1,8 +1,32 @@
 from __future__ import annotations
+from dataclasses import dataclass, field
 from typing import List, Tuple, Optional, Dict
+import heapq
 import math
 
 State = Tuple[int, ...] 
+
+@dataclass(order=True)
+class PrioritizedItem:
+    f: int
+    tie: int
+    node: "Node" = field(compare=False)
+
+@dataclass
+class Node:
+    state: State
+    parent: Optional["Node"]
+    action: Optional[str]
+    g: int  # path cost so far
+    h: int  # heuristic estimate
+
+    def path(self) -> List["Node"]:
+        n: Optional["Node"] = self
+        out: List["Node"] = []
+        while n is not None:
+            out.append(n)
+            n = n.parent
+        return list(reversed(out))
 
 class PuzzleProblem:
     def __init__(self, initial: State, goal: Optional[State] = None) -> None:
@@ -83,6 +107,56 @@ def main():
         print(f"Move {action} results in:")
         print(pretty_board(state, problem.k))
     print(f"Solvable? {problem.is_solvable(initial)}")
+
+def a_star_search(
+    problem,
+    heuristic: Callable[[State], int],
+    trace: bool = True
+) -> Tuple[Optional[Node], int, int]:
+    start_h = heuristic(problem.initial)
+    start = Node(state=problem.initial, parent=None, action=None, g=0, h=start_h)
+    frontier: List[PrioritizedItem] = []
+    tie_counter = 0
+    heapq.heappush(frontier, PrioritizedItem(f=start.g + start.h, tie=tie_counter, node=start))
+    tie_counter += 1
+    best_g: Dict[State, int] = {start.state: 0}
+    explored: Set[State] = set()
+    nodes_expanded = 0
+    max_frontier_size = 1
+
+    while frontier:
+        max_frontier_size = max(max_frontier_size, len(frontier))
+        current_item = heapq.heappop(frontier)
+        current = current_item.node
+
+        if trace:
+            print("\nThe best state to expand with  g(n) = {} and h(n) = {} is…".format(current.g, current.h))
+            print(pretty_board(current.state, int(math.sqrt(len(current.state)))))
+
+        if problem.is_goal(current.state):
+            return current, nodes_expanded, max_frontier_size
+
+        explored.add(current.state)
+        nodes_expanded += 1
+
+        for action, child_state in problem.neighbors(current.state):
+            new_g = current.g + 1
+            if child_state in explored and new_g >= best_g.get(child_state, math.inf):
+                continue
+            if new_g < best_g.get(child_state, math.inf):
+                best_g[child_state] = new_g
+                child_h = heuristic(child_state)
+                child = Node(state=child_state, parent=current, action=action, g=new_g, h=child_h)
+                heapq.heappush(frontier, PrioritizedItem(f=child.g + child.h, tie=tie_counter, node=child))
+                tie_counter += 1
+    return None, nodes_expanded, max_frontier_size
+
+def pretty_board(state: State, k: int, blank_char: str = "b") -> str:
+    rows = []
+    for i in range(k):
+        row = state[i*k:(i+1)*k]
+        rows.append(" ".join(blank_char if v==0 else str(v) for v in row))
+    return "\n".join(rows)
 
 def pretty_board(state: State, k: int, blank_char: str = "b") -> str:
     rows = []
